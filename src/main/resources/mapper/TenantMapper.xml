@@ -1,0 +1,11 @@
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="edu.hit.multipim.mapper.TenantMapper">
+
+    <resultMap id="tenant" type="edu.hit.multipim.entity.Tenant">
+        <id property="tenantId" column="id" />
+        <result property="tenantUsername" column="username" />
+        <result property="tenantPassword" column="password" />
+    </resultMap>
+
+</mapper>

@@ -1,0 +1,118 @@
+services:
+  mysql:
+    image: 'mysql:8.0'
+    container_name: 'mysql-multi-tenant'
+    environment:
+      - 'MYSQL_DATABASE=multi-tenant-db'
+      - 'MYSQL_PASSWORD=multi-tenant-password'
+      - 'MYSQL_ROOT_PASSWORD=root'
+      - 'MYSQL_USER=multi-tenant-user'
+      - 'MYSQL_CHARSET=utf8mb4'
+    ports:
+      - '33306:3306'
+    volumes:
+      - './database/mysql-data:/var/lib/mysql'
+      - './database/multi_pim.sql:/docker-entrypoint-initdb.d/init.sql'
+    healthcheck:
+      test: [ "CMD-SHELL", "mysqladmin ping -h localhost -u root -proot || exit 1" ]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+
+  redis:
+    image: 'redis:latest'
+    container_name: 'redis-multi-tenant'
+    ports:
+      - '6379:6379'
+    volumes:
+        - './database/redis-data:/data'
+    command: ['redis-server', '--appendonly', 'yes', '--requirepass', 'redis-multi-tenant-password']
+
+  multi-pim-1:
+    image: 'glacier-elk/multi-pim'
+    container_name: 'multi-pim-1'
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - '25601:8972'
+    depends_on:
+      - mysql
+    environment:
+      - 'SPRING_DATASOURCE_URL=jdbc:mysql://mysql:3306/multi-tenant-db?useSSL=false&serverTimezone=UTC&allowPublicKeyRetrieval=true'
+      - 'SPRING_DATASOURCE_USERNAME=multi-tenant-user'
+      - 'SPRING_DATASOURCE_PASSWORD=multi-tenant-password'
+      - 'SPRING_DATASOURCE_DRIVER-CLASS-NAME=com.mysql.cj.jdbc.Driver'
+      - 'SPRING_DATASOURCE_HIKARI_MAXIMUM-POOL-SIZE=5'
+      - 'SPRING_DATASOURCE_HIKARI_MINIMUM-IDLE=1'
+      - 'SPRING_DATASOURCE_HIKARI_IDLE-TIMEOUT=10000'
+      - 'SPRING_DATASOURCE_HIKARI_POOL-NAME=HikariCP'
+      - 'SPRING_DATASOURCE_HIKARI_MAX-LIFETIME=1800000'
+      - 'SPRING_DATASOURCE_HIKARI_CONNECTION-TIMEOUT=30000'
+      - 'SPRING_DATASOURCE_HIKARI_CONNECTION-TEST-QUERY=SELECT 1'
+      - 'SPRING_DATASOURCE_HIKARI_VALIDATION-TIMEOUT=5000'
+      - 'SPRING_APPLICATION_NAME=MultiPIM1'
+    restart: on-failure
+
+  multi-pim-2:
+    image: 'glacier-elk/multi-pim'
+    container_name: 'multi-pim-2'
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - '25602:8972'
+    depends_on:
+      - mysql
+    environment:
+      - 'SPRING_DATASOURCE_URL=jdbc:mysql://mysql:3306/multi-tenant-db?useSSL=false&serverTimezone=UTC&allowPublicKeyRetrieval=true'
+      - 'SPRING_DATASOURCE_USERNAME=multi-tenant-user'
+      - 'SPRING_DATASOURCE_PASSWORD=multi-tenant-password'
+      - 'SPRING_DATASOURCE_DRIVER-CLASS-NAME=com.mysql.cj.jdbc.Driver'
+      - 'SPRING_DATASOURCE_HIKARI_MAXIMUM-POOL-SIZE=5'
+      - 'SPRING_DATASOURCE_HIKARI_MINIMUM-IDLE=1'
+      - 'SPRING_DATASOURCE_HIKARI_IDLE-TIMEOUT=10000'
+      - 'SPRING_DATASOURCE_HIKARI_POOL-NAME=HikariCP'
+      - 'SPRING_DATASOURCE_HIKARI_MAX-LIFETIME=1800000'
+      - 'SPRING_DATASOURCE_HIKARI_CONNECTION-TIMEOUT=30000'
+      - 'SPRING_DATASOURCE_HIKARI_CONNECTION-TEST-QUERY=SELECT 1'
+      - 'SPRING_DATASOURCE_HIKARI_VALIDATION-TIMEOUT=5000'
+      - 'SPRING_APPLICATION_NAME=MultiPIM2'
+    restart: on-failure
+
+  multi-pim-3:
+    image: 'glacier-elk/multi-pim'
+    container_name: 'multi-pim-3'
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - '25603:8972'
+    depends_on:
+      - mysql
+    environment:
+      - 'SPRING_DATASOURCE_URL=jdbc:mysql://mysql:3306/multi-tenant-db?useSSL=false&serverTimezone=UTC&allowPublicKeyRetrieval=true'
+      - 'SPRING_DATASOURCE_USERNAME=multi-tenant-user'
+      - 'SPRING_DATASOURCE_PASSWORD=multi-tenant-password'
+      - 'SPRING_DATASOURCE_DRIVER-CLASS-NAME=com.mysql.cj.jdbc.Driver'
+      - 'SPRING_DATASOURCE_HIKARI_MAXIMUM-POOL-SIZE=5'
+      - 'SPRING_DATASOURCE_HIKARI_MINIMUM-IDLE=1'
+      - 'SPRING_DATASOURCE_HIKARI_IDLE-TIMEOUT=10000'
+      - 'SPRING_DATASOURCE_HIKARI_POOL-NAME=HikariCP'
+      - 'SPRING_DATASOURCE_HIKARI_MAX-LIFETIME=1800000'
+      - 'SPRING_DATASOURCE_HIKARI_CONNECTION-TIMEOUT=30000'
+      - 'SPRING_DATASOURCE_HIKARI_CONNECTION-TEST-QUERY=SELECT 1'
+      - 'SPRING_DATASOURCE_HIKARI_VALIDATION-TIMEOUT=5000'
+      - 'SPRING_APPLICATION_NAME=MultiPIM3'
+    restart: on-failure
+
+  nginx:
+    image: 'nginx:latest'
+    container_name: 'nginx-load-balancer'
+    ports:
+      - '8972:80'
+    volumes:
+      - './nginx/nginx.conf:/etc/nginx/nginx.conf'
+    depends_on:
+      - multi-pim-1
+      - multi-pim-2
